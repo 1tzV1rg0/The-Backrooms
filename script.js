@@ -3,13 +3,17 @@
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d", { alpha: false });
-  const depthEl = document.getElementById("depth");
+  const coordsEl = document.getElementById("coords");
   const statusEl = document.getElementById("status");
 
   const TILE = 24;
   const PLAYER_RADIUS = 7;
   const MONSTER_RADIUS = 8;
   const SPEED = 155;
+  const SPRINT_SPEED = 245;
+  const STAMINA_MAX = 100;
+  const STAMINA_DRAIN = 34;
+  const STAMINA_RECOVER = 24;
   const MONSTER_SPEED = 118;
   const EXIT_CELL = pickExitCell();
   const EXIT_TILE = { x: EXIT_CELL.x * 2, y: EXIT_CELL.y * 2 };
@@ -21,6 +25,8 @@
     y: TILE / 2,
     won: false,
     caught: false,
+    stamina: STAMINA_MAX,
+    sprinting: false,
     lastTime: performance.now(),
     pulse: 0,
     monster: {
@@ -285,13 +291,24 @@
 
     if (state.caught) return;
 
-    if (dx !== 0 || dy !== 0) {
+    const moving = dx !== 0 || dy !== 0;
+    const wantsSprint = keys.has("shift") && moving && state.stamina > 0;
+    state.sprinting = wantsSprint;
+
+    if (moving) {
+      const speed = wantsSprint ? SPRINT_SPEED : SPEED;
       const length = Math.hypot(dx, dy);
-      dx = (dx / length) * SPEED * dt;
-      dy = (dy / length) * SPEED * dt;
+      dx = (dx / length) * speed * dt;
+      dy = (dy / length) * speed * dt;
 
       if (!collides(state.x + dx, state.y)) state.x += dx;
       if (!collides(state.x, state.y + dy)) state.y += dy;
+    }
+
+    if (state.sprinting) {
+      state.stamina = Math.max(0, state.stamina - STAMINA_DRAIN * dt);
+    } else {
+      state.stamina = Math.min(STAMINA_MAX, state.stamina + STAMINA_RECOVER * dt);
     }
 
     const exitX = EXIT_TILE.x * TILE + TILE / 2;
@@ -429,8 +446,13 @@
     drawPlayer();
     drawVignette();
 
-    const cellsFromStart = Math.round(Math.hypot(state.x, state.y) / (TILE * 2));
-    depthEl.textContent = cellsFromStart + " m";
+    const playerX = Math.floor(state.x / TILE);
+    const playerY = Math.floor(state.y / TILE);
+    const monsterX = Math.floor(state.monster.x / TILE);
+    const monsterY = Math.floor(state.monster.y / TILE);
+    coordsEl.textContent = "Player " + playerX + ", " + playerY +
+      " | Monster " + monsterX + ", " + monsterY +
+      " | Stamina " + Math.round(state.stamina) + "%";
   }
 
   function frame(now) {
@@ -445,7 +467,7 @@
   window.addEventListener("resize", resize);
   window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
-    if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "shift"].includes(key)) {
       keys.add(key);
       event.preventDefault();
     }
