@@ -45,6 +45,27 @@ body {
   user-select: none;
 }
 
+#restart,
+#pause {
+  border: 1px solid rgba(255, 249, 200, 0.55);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: rgba(30, 22, 2, 0.52);
+  color: #fff9c8;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#restart,
+#pause:hover,
+#restart,
+#pause:focus-visible {
+  background: rgba(57, 42, 5, 0.78);
+  outline: none;
+}
+
 #coords {
   max-width: min(70vw, 680px);
   overflow: hidden;
