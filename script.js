@@ -5,6 +5,8 @@
   const ctx = canvas.getContext("2d", { alpha: false });
   const coordsEl = document.getElementById("coords");
   const statusEl = document.getElementById("status");
+  const restartBtn = document.getElementById("restart");
+  const pauseBtn = document.getElementById("pause");
 
   const TILE = 24;
   const PLAYER_RADIUS = 7;
@@ -25,6 +27,7 @@
     y: TILE / 2,
     won: false,
     caught: false,
+    paused: false,
     stamina: STAMINA_MAX,
     sprinting: false,
     lastTime: performance.now(),
@@ -35,13 +38,51 @@
       awake: false,
       wanderX: MONSTER_TILE.x * TILE + TILE / 2,
       wanderY: MONSTER_TILE.y * TILE + TILE / 2,
-      wanderSeed: 1
+      wanderSeed: 1,
+      path: [],
+      pathGoalX: null,
+      pathGoalY: null,
+      pathTimer: 0,
+      stuckTime: 0
     }
   };
 
   let width = 0;
   let height = 0;
   let dpr = 1;
+
+  function resetGame() {
+    state.x = TILE / 2;
+    state.y = TILE / 2;
+    state.won = false;
+    state.caught = false;
+    state.paused = false;
+    pauseBtn.textContent = "Pause";
+    state.stamina = STAMINA_MAX;
+    state.sprinting = false;
+    state.monster.x = MONSTER_TILE.x * TILE + TILE / 2;
+    state.monster.y = MONSTER_TILE.y * TILE + TILE / 2;
+    state.monster.awake = false;
+    state.monster.wanderX = state.monster.x;
+    state.monster.wanderY = state.monster.y;
+    state.monster.wanderSeed += 1;
+    state.monster.path = [];
+    state.monster.pathGoalX = null;
+    state.monster.pathGoalY = null;
+    state.monster.pathTimer = 0;
+    state.monster.stuckTime = 0;
+    keys.clear();
+    statusEl.textContent = "Find the exit";
+  }
+
+  function togglePause() {
+    if (state.won || state.caught) return;
+
+    state.paused = !state.paused;
+    pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+    statusEl.textContent = state.paused ? "Paused" : (state.monster.awake ? "It saw you" : "Find the exit");
+    keys.clear();
+  }
 
   function resize() {
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -225,26 +266,180 @@
     state.monster.wanderY = target.y * TILE + TILE / 2;
   }
 
-  function stepMonsterToward(targetX, targetY, speed, dt) {
+  function monsterTile() {
+    return {
+      x: Math.floor(state.monster.x / TILE),
+      y: Math.floor(state.monster.y / TILE)
+    };
+  }
+
+  function playerTile() {
+    return {
+      x: Math.floor(state.x / TILE),
+      y: Math.floor(state.y / TILE)
+    };
+  }
+
+  function tileCenter(tx, ty) {
+    return {
+      x: tx * TILE + TILE / 2,
+      y: ty * TILE + TILE / 2
+    };
+  }
+
+  function isMonsterFloor(tx, ty) {
+    const center = tileCenter(tx, ty);
+    return tileKind(tx, ty) === "floor" && !collides(center.x, center.y, MONSTER_RADIUS);
+  }
+
+  function closestWalkableTile(tx, ty, maxRadius = 5) {
+    if (isMonsterFloor(tx, ty)) return { x: tx, y: ty };
+
+    let best = null;
+    for (let radius = 1; radius <= maxRadius; radius += 1) {
+      for (let oy = -radius; oy <= radius; oy += 1) {
+        for (let ox = -radius; ox <= radius; ox += 1) {
+          if (Math.abs(ox) !== radius && Math.abs(oy) !== radius) continue;
+          const cx = tx + ox;
+          const cy = ty + oy;
+          if (!isMonsterFloor(cx, cy)) continue;
+          const score = Math.abs(ox) + Math.abs(oy) + (hash(cx, cy, 1319) % 10) * 0.01;
+          if (!best || score < best.score) best = { x: cx, y: cy, score };
+        }
+      }
+      if (best) return best;
+    }
+
+    return null;
+  }
+
+  function findMonsterPath(goalX, goalY, limit = 2200) {
+    const startTile = closestWalkableTile(Math.floor(state.monster.x / TILE), Math.floor(state.monster.y / TILE), 2);
+    const goal = closestWalkableTile(Math.floor(goalX / TILE), Math.floor(goalY / TILE), 6);
+    if (!startTile || !goal) return [];
+    if (startTile.x === goal.x && startTile.y === goal.y) return [];
+
+    const key = (x, y) => x + "," + y;
+    const heuristic = (x, y) => Math.abs(x - goal.x) + Math.abs(y - goal.y);
+    const open = [{ x: startTile.x, y: startTile.y, g: 0, f: heuristic(startTile.x, startTile.y) }];
+    const cameFrom = new Map();
+    const best = new Map([[key(startTile.x, startTile.y), 0]]);
+    const directions = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 }
+    ];
+    let searched = 0;
+
+    while (open.length > 0 && searched < limit) {
+      let bestIndex = 0;
+      for (let i = 1; i < open.length; i += 1) {
+        if (open[i].f < open[bestIndex].f) bestIndex = i;
+      }
+      const current = open.splice(bestIndex, 1)[0];
+      searched += 1;
+
+      if (current.x === goal.x && current.y === goal.y) {
+        const path = [];
+        let cursor = key(current.x, current.y);
+        while (cameFrom.has(cursor)) {
+          const [x, y] = cursor.split(",").map(Number);
+          path.push(tileCenter(x, y));
+          cursor = cameFrom.get(cursor);
+        }
+        path.reverse();
+        return path.slice(0, 28);
+      }
+
+      for (const direction of directions) {
+        const nx = current.x + direction.x;
+        const ny = current.y + direction.y;
+        if (!isMonsterFloor(nx, ny)) continue;
+
+        const nextKey = key(nx, ny);
+        const nextG = current.g + 1;
+        if (best.has(nextKey) && best.get(nextKey) <= nextG) continue;
+
+        best.set(nextKey, nextG);
+        cameFrom.set(nextKey, key(current.x, current.y));
+        open.push({
+          x: nx,
+          y: ny,
+          g: nextG,
+          f: nextG + heuristic(nx, ny) + (hash(nx, ny, 1201) % 7) * 0.015
+        });
+      }
+    }
+
+    return [];
+  }
+
+  function setMonsterPath(goalX, goalY, force = false) {
+    const goalTile = closestWalkableTile(Math.floor(goalX / TILE), Math.floor(goalY / TILE), 6);
+    if (!goalTile) {
+      state.monster.path = [];
+      return;
+    }
+    if (!force && state.monster.pathGoalX === goalTile.x && state.monster.pathGoalY === goalTile.y && state.monster.path.length > 0) return;
+
+    state.monster.path = findMonsterPath(goalTile.x * TILE + TILE / 2, goalTile.y * TILE + TILE / 2);
+    state.monster.pathGoalX = goalTile.x;
+    state.monster.pathGoalY = goalTile.y;
+  }
+
+  function moveMonsterAxis(targetX, targetY, speed, dt) {
     const dx = targetX - state.monster.x;
     const dy = targetY - state.monster.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance < 1) return true;
+    if (Math.hypot(dx, dy) < TILE * 0.16) return true;
 
-    const stepX = (dx / distance) * speed * dt;
-    const stepY = (dy / distance) * speed * dt;
+    const horizontalFirst = Math.abs(dx) > Math.abs(dy);
+    const axes = horizontalFirst ? ["x", "y"] : ["y", "x"];
     let moved = false;
 
-    if (!collides(state.monster.x + stepX, state.monster.y, MONSTER_RADIUS)) {
-      state.monster.x += stepX;
-      moved = true;
-    }
-    if (!collides(state.monster.x, state.monster.y + stepY, MONSTER_RADIUS)) {
-      state.monster.y += stepY;
-      moved = true;
+    for (const axis of axes) {
+      const delta = axis === "x" ? dx : dy;
+      if (Math.abs(delta) < 0.8) continue;
+      const step = Math.sign(delta) * Math.min(Math.abs(delta), speed * dt);
+      const nextX = axis === "x" ? state.monster.x + step : state.monster.x;
+      const nextY = axis === "y" ? state.monster.y + step : state.monster.y;
+      if (!collides(nextX, nextY, MONSTER_RADIUS)) {
+        state.monster.x = nextX;
+        state.monster.y = nextY;
+        moved = true;
+      }
     }
 
-    return distance < TILE * 0.28 || !moved;
+    state.monster.stuckTime = moved ? 0 : state.monster.stuckTime + dt;
+    return Math.hypot(targetX - state.monster.x, targetY - state.monster.y) < TILE * 0.18 || state.monster.stuckTime > 0.45;
+  }
+
+  function snapMonsterToCurrentTile() {
+    const current = closestWalkableTile(Math.floor(state.monster.x / TILE), Math.floor(state.monster.y / TILE), 2);
+    if (!current) return;
+    const center = tileCenter(current.x, current.y);
+    state.monster.x = center.x;
+    state.monster.y = center.y;
+    state.monster.stuckTime = 0;
+  }
+
+  function followMonsterPath(goalX, goalY, speed, dt) {
+    state.monster.pathTimer -= dt;
+    if (state.monster.pathTimer <= 0 || state.monster.path.length === 0) {
+      setMonsterPath(goalX, goalY, true);
+      state.monster.pathTimer = 0.28;
+    }
+
+    const next = state.monster.path[0];
+    if (!next) return false;
+
+    const reached = moveMonsterAxis(next.x, next.y, speed, dt);
+    if (reached) {
+      if (state.monster.stuckTime > 0.45) snapMonsterToCurrentTile();
+      state.monster.path.shift();
+      state.monster.pathTimer = 0;
+    }
+    return reached;
   }
 
   function wanderMonster(dt) {
@@ -253,16 +448,20 @@
       setWanderTarget();
     }
 
-    if (stepMonsterToward(state.monster.wanderX, state.monster.wanderY, MONSTER_SPEED * 0.52, dt)) {
+    followMonsterPath(state.monster.wanderX, state.monster.wanderY, MONSTER_SPEED * 0.52, dt);
+    if (Math.hypot(state.monster.wanderX - state.monster.x, state.monster.wanderY - state.monster.y) < TILE * 0.35) {
       setWanderTarget();
+      state.monster.path = [];
     }
   }
 
   function moveMonster(dt) {
-    if (state.caught || state.won) return;
+    if (state.caught || state.won || state.paused) return;
 
     if (!state.monster.awake && sameCorridor()) {
       state.monster.awake = true;
+      state.monster.path = [];
+      state.monster.pathTimer = 0;
       statusEl.textContent = "It saw you";
     }
 
@@ -278,7 +477,7 @@
       return;
     }
 
-    stepMonsterToward(state.x, state.y, MONSTER_SPEED, dt);
+    followMonsterPath(state.x, state.y, MONSTER_SPEED, dt);
   }
 
   function move(dt) {
@@ -289,7 +488,7 @@
     if (keys.has("arrowup") || keys.has("w")) dy -= 1;
     if (keys.has("arrowdown") || keys.has("s")) dy += 1;
 
-    if (state.caught) return;
+    if (state.caught || state.paused) return;
 
     const moving = dx !== 0 || dy !== 0;
     const wantsSprint = keys.has("shift") && moving && state.stamina > 0;
@@ -464,6 +663,8 @@
     requestAnimationFrame(frame);
   }
 
+  pauseBtn.addEventListener("click", togglePause);
+  restartBtn.addEventListener("click", resetGame);
   window.addEventListener("resize", resize);
   window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
