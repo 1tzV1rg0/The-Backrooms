@@ -45,6 +45,13 @@ body {
   user-select: none;
 }
 
+#coords {
+  max-width: min(70vw, 680px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #status {
   max-width: min(58vw, 420px);
   overflow: hidden;
