@@ -138,6 +138,7 @@
     if (cx === 0 && cy === 0) return null;
 
     const currentDistance = Math.hypot(cx, cy);
+    const regionSalt = hash(Math.floor(cx / 5), Math.floor(cy / 5), 379);
     const neighbors = [
       { x: cx + 1, y: cy },
       { x: cx - 1, y: cy },
@@ -145,23 +146,32 @@
       { x: cx, y: cy - 1 }
     ];
     const choices = neighbors
-      .map((neighbor) => ({
-        x: neighbor.x,
-        y: neighbor.y,
-        distance: Math.hypot(neighbor.x, neighbor.y),
-        noise: hash(cx * 3 + neighbor.x, cy * 3 + neighbor.y, 307) / 0xffffffff
-      }))
+      .map((neighbor) => {
+        const distance = Math.hypot(neighbor.x, neighbor.y);
+        const noise = hash(cx * 5 + neighbor.x, cy * 5 + neighbor.y, 307) / 0xffffffff;
+        const bend = hash(neighbor.x + regionSalt, neighbor.y - regionSalt, 401) % 100 < 30 ? -0.42 : 0;
+        const sweep = hash(Math.floor((cx + neighbor.x) / 4), Math.floor((cy + neighbor.y) / 4), 419) % 100 < 24 ? -0.32 : 0;
+        return {
+          x: neighbor.x,
+          y: neighbor.y,
+          distance,
+          score: distance + noise * 2.85 + bend + sweep
+        };
+      })
       .filter((neighbor) => neighbor.distance < currentDistance)
-      .sort((a, b) => (a.distance + a.noise * 1.65) - (b.distance + b.noise * 1.65));
+      .sort((a, b) => a.score - b.score);
 
     return choices[0] || { x: cx - Math.sign(cx || 1), y: cy };
   }
 
   function sideOpening(ax, ay, bx, by) {
     const farFromSpawn = Math.max(Math.hypot(ax, ay), Math.hypot(bx, by)) > 3;
-    const roll = hash(ax + bx, ay + by, 509) % 100;
-    const longHall = hash(Math.min(ax, bx), Math.min(ay, by), 613) % 37 === 0;
-    return farFromSpawn && (roll < 24 || longHall);
+    const region = hash(Math.floor((ax + bx) / 8), Math.floor((ay + by) / 8), 509) % 100;
+    const baseChance = region < 20 ? 39 : region < 58 ? 25 : 12;
+    const roll = hash(ax * 11 + bx * 7, ay * 11 + by * 7, 521) % 100;
+    const longHall = hash(Math.min(ax, bx), Math.min(ay, by), 613) % 29 === 0;
+    const crossCut = hash(ax - bx * 3, ay - by * 3, 631) % 100 < 7;
+    return farFromSpawn && (roll < baseChance || longHall || crossCut);
   }
 
   function connected(ax, ay, bx, by) {
@@ -203,10 +213,15 @@
       baseTileKind(tx + 1, ty - 1) === "floor" ||
       baseTileKind(tx - 1, ty + 1) === "floor" ||
       baseTileKind(tx + 1, ty + 1) === "floor";
+    const widthRegion = hash(Math.floor(tx / 7), Math.floor(ty / 7), 967) % 100;
+    const horizontalWidth = widthRegion < 20 ? 55 : widthRegion < 62 ? 36 : 18;
+    const verticalWidth = widthRegion > 72 ? 52 : widthRegion > 35 ? 32 : 20;
+    const alcoveWidth = widthRegion > 45 && widthRegion < 78 ? 20 : 7;
 
-    if (nearHorizontal && widenChance(tx, ty, 941) < 34) return "floor";
-    if (nearVertical && widenChance(tx, ty, 947) < 34) return "floor";
-    if (alcove && widenChance(tx, ty, 953) < 10) return "floor";
+    if (nearHorizontal && widenChance(tx, ty, 941) < horizontalWidth) return "floor";
+    if (nearVertical && widenChance(tx, ty, 947) < verticalWidth) return "floor";
+    if (alcove && widenChance(tx, ty, 953) < alcoveWidth) return "floor";
+    if ((nearHorizontal || nearVertical) && hash(tx, ty, 977) % 100 < 5) return "floor";
 
     return "wall";
   }
@@ -263,13 +278,19 @@
     const ty = Math.floor(state.monster.y / TILE);
     const candidates = [];
 
-    for (let oy = -5; oy <= 5; oy += 1) {
-      for (let ox = -5; ox <= 5; ox += 1) {
+    for (let oy = -9; oy <= 9; oy += 1) {
+      for (let ox = -9; ox <= 9; ox += 1) {
         const distance = Math.abs(ox) + Math.abs(oy);
-        if (distance < 2 || distance > 7) continue;
+        if (distance < 4 || distance > 13) continue;
         const cx = tx + ox;
         const cy = ty + oy;
-        if (tileKind(cx, cy) === "floor") candidates.push({ x: cx, y: cy, score: hash(cx, cy, state.monster.wanderSeed) });
+        if (isMonsterFloor(cx, cy)) {
+          candidates.push({
+            x: cx,
+            y: cy,
+            score: hash(cx, cy, state.monster.wanderSeed) - distance * 58
+          });
+        }
       }
     }
 
@@ -458,12 +479,12 @@
 
   function wanderMonster(dt) {
     const distance = Math.hypot(state.monster.wanderX - state.monster.x, state.monster.wanderY - state.monster.y);
-    if (distance < TILE * 0.32 || collides(state.monster.wanderX, state.monster.wanderY, MONSTER_RADIUS)) {
+    if (distance < TILE * 0.24 || collides(state.monster.wanderX, state.monster.wanderY, MONSTER_RADIUS)) {
       setWanderTarget();
     }
 
-    followMonsterPath(state.monster.wanderX, state.monster.wanderY, MONSTER_SPEED * 0.52, dt);
-    if (Math.hypot(state.monster.wanderX - state.monster.x, state.monster.wanderY - state.monster.y) < TILE * 0.35) {
+    followMonsterPath(state.monster.wanderX, state.monster.wanderY, MONSTER_SPEED * 0.68, dt);
+    if (Math.hypot(state.monster.wanderX - state.monster.x, state.monster.wanderY - state.monster.y) < TILE * 0.28) {
       setWanderTarget();
       state.monster.path = [];
     }
