@@ -666,14 +666,55 @@
   pauseBtn.addEventListener("click", togglePause);
   restartBtn.addEventListener("click", resetGame);
   window.addEventListener("resize", resize);
-  window.addEventListener("keydown", (event) => {
-    const key = event.key.toLowerCase();
+    function keyName(event) {
+    const key = (event.key || "").toLowerCase();
+    if (key && key !== "unidentified") return key;
+
+    const code = (event.code || "").toLowerCase();
+    if (code === "keyp") return "p";
+    if (code === "keyr") return "r";
+    if (code === "keyc") return "c";
+    if (code === "keyw") return "w";
+    if (code === "keya") return "a";
+    if (code === "keys") return "s";
+    if (code === "keyd") return "d";
+    if (code === "shiftleft" || code === "shiftright") return "shift";
+    return key;
+  }
+
+  function handleKeyDown(event) {
+    const key = keyName(event);
+    const shortcuts = ["p", "r", "c"];
+
+    if (event.repeat && shortcuts.includes(key)) {
+      event.preventDefault();
+      return;
+    }
+    if (key === "p") {
+      togglePause();
+      event.preventDefault();
+      return;
+    }
+    if (key === "r") {
+      resetGame();
+      event.preventDefault();
+      return;
+    }
+    if (key === "c") {
+      toggleCoordinates();
+      event.preventDefault();
+      return;
+    }
+
     if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "shift"].includes(key)) {
       keys.add(key);
       event.preventDefault();
     }
-  });
-  window.addEventListener("keyup", (event) => {
+  }
+
+  document.addEventListener("keydown", handleKeyDown, true);
+      canvas.focus();
+keys.delete(keyName(event));
     keys.delete(event.key.toLowerCase());
   });
   window.addEventListener("blur", () => keys.clear());
