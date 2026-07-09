@@ -12,7 +12,7 @@
   const PLAYER_RADIUS = 7;
   const MONSTER_RADIUS = 8;
   const SPEED = 155;
-  const SPRINT_SPEED = 245;
+  const SPRINT_SPEED = 245;24 + (hash(23, -51, 719) % 13)
   const STAMINA_MAX = 100;
   const STAMINA_DRAIN = 34;
   const STAMINA_RECOVER = 24;
