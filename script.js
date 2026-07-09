@@ -17,6 +17,8 @@
   const STAMINA_DRAIN = 34;
   const STAMINA_RECOVER = 24;
   const MONSTER_SPEED = 118;
+  const MONSTER_SEARCH_TIME = 3.2;
+  const MONSTER_LOSE_DISTANCE = TILE * 9;
   const EXIT_CELL = pickExitCell();
   const EXIT_TILE = { x: EXIT_CELL.x * 2, y: EXIT_CELL.y * 2 };
   const MONSTER_CELL = pickMonsterCell();
@@ -44,7 +46,10 @@
       pathGoalX: null,
       pathGoalY: null,
       pathTimer: 0,
-      stuckTime: 0
+      stuckTime: 0,
+      searchTime: 0,
+      lastSeenX: MONSTER_TILE.x * TILE + TILE / 2,
+      lastSeenY: MONSTER_TILE.y * TILE + TILE / 2
     }
   };
 
@@ -72,6 +77,9 @@
     state.monster.pathGoalY = null;
     state.monster.pathTimer = 0;
     state.monster.stuckTime = 0;
+    state.monster.searchTime = 0;
+    state.monster.lastSeenX = state.monster.x;
+    state.monster.lastSeenY = state.monster.y;
     keys.clear();
     statusEl.textContent = "Find the exit";
   }
@@ -464,10 +472,15 @@
   function moveMonster(dt) {
     if (state.caught || state.won || state.paused) return;
 
-    if (!state.monster.awake && sameCorridor()) {
+    const canSeePlayer = sameCorridor();
+
+    if (!state.monster.awake && canSeePlayer) {
       state.monster.awake = true;
       state.monster.path = [];
       state.monster.pathTimer = 0;
+      state.monster.searchTime = 0;
+      state.monster.lastSeenX = state.x;
+      state.monster.lastSeenY = state.y;
       statusEl.textContent = "It saw you";
     }
 
@@ -483,7 +496,32 @@
       return;
     }
 
-    followMonsterPath(state.x, state.y, MONSTER_SPEED, dt);
+    if (canSeePlayer) {
+      state.monster.searchTime = 0;
+      state.monster.lastSeenX = state.x;
+      state.monster.lastSeenY = state.y;
+      statusEl.textContent = "It saw you";
+      followMonsterPath(state.x, state.y, MONSTER_SPEED, dt);
+      return;
+    }
+
+    state.monster.searchTime += dt;
+    statusEl.textContent = "It is searching";
+    followMonsterPath(state.monster.lastSeenX, state.monster.lastSeenY, MONSTER_SPEED * 0.92, dt);
+
+    const distanceFromPlayer = Math.hypot(state.x - state.monster.x, state.y - state.monster.y);
+    const distanceFromLastSeen = Math.hypot(state.monster.lastSeenX - state.monster.x, state.monster.lastSeenY - state.monster.y);
+    if ((state.monster.searchTime > MONSTER_SEARCH_TIME && distanceFromPlayer > MONSTER_LOSE_DISTANCE) ||
+        distanceFromLastSeen < TILE * 0.55) {
+      state.monster.awake = false;
+      state.monster.searchTime = 0;
+      state.monster.path = [];
+      state.monster.pathTimer = 0;
+      state.monster.wanderX = state.monster.x;
+      state.monster.wanderY = state.monster.y;
+      setWanderTarget();
+      statusEl.textContent = "You lost it";
+    }
   }
 
   function move(dt) {
