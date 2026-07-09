@@ -12,7 +12,7 @@
   const PLAYER_RADIUS = 7;
   const MONSTER_RADIUS = 8;
   const SPEED = 155;
-    const SPRINT_SPEED = 245;
+  const SPRINT_SPEED = 245;
   const STAMINA_MAX = 100;
   const STAMINA_DRAIN = 34;
   const STAMINA_RECOVER = 24;
@@ -28,6 +28,7 @@
     won: false,
     caught: false,
     paused: false,
+    showCoords: true,
     stamina: STAMINA_MAX,
     sprinting: false,
     lastTime: performance.now(),
@@ -57,7 +58,7 @@
     state.won = false;
     state.caught = false;
     state.paused = false;
-    pauseBtn.textContent = "Pause";
+    pauseBtn.textContent = "Pause (P)";
     state.stamina = STAMINA_MAX;
     state.sprinting = false;
     state.monster.x = MONSTER_TILE.x * TILE + TILE / 2;
@@ -79,9 +80,14 @@
     if (state.won || state.caught) return;
 
     state.paused = !state.paused;
-    pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+    pauseBtn.textContent = state.paused ? "Resume (P)" : "Pause (P)";
     statusEl.textContent = state.paused ? "Paused" : (state.monster.awake ? "It saw you" : "Find the exit");
     keys.clear();
+  }
+
+  function toggleCoordinates() {
+    state.showCoords = !state.showCoords;
+    coordsEl.hidden = !state.showCoords;
   }
 
   function resize() {
@@ -113,7 +119,7 @@
 
   function pickMonsterCell() {
     const angle = (hash(41, 19, 707) / 0xffffffff) * Math.PI * 2;
-        const distance = 24 + (hash(23, -51, 719) % 13);
+    const distance = 24 + (hash(23, -51, 719) % 13);
     return {
       x: Math.round(Math.cos(angle) * distance),
       y: Math.round(Math.sin(angle) * distance)
@@ -649,9 +655,11 @@
     const playerY = Math.floor(state.y / TILE);
     const monsterX = Math.floor(state.monster.x / TILE);
     const monsterY = Math.floor(state.monster.y / TILE);
-    coordsEl.textContent = "Player " + playerX + ", " + playerY +
-      " | Monster " + monsterX + ", " + monsterY +
-      " | Stamina " + Math.round(state.stamina) + "%";
+    if (state.showCoords) {
+      coordsEl.textContent = "Player " + playerX + ", " + playerY +
+        " | Monster " + monsterX + ", " + monsterY +
+        " | Stamina " + Math.round(state.stamina) + "%";
+    }
   }
 
   function frame(now) {
@@ -666,7 +674,7 @@
   pauseBtn.addEventListener("click", togglePause);
   restartBtn.addEventListener("click", resetGame);
   window.addEventListener("resize", resize);
-    function keyName(event) {
+  function keyName(event) {
     const key = (event.key || "").toLowerCase();
     if (key && key !== "unidentified") return key;
 
@@ -713,12 +721,12 @@
   }
 
   document.addEventListener("keydown", handleKeyDown, true);
-      canvas.focus();
-keys.delete(keyName(event));
-    keys.delete(event.key.toLowerCase());
+  window.addEventListener("keyup", (event) => {
+    keys.delete(keyName(event));
   });
   window.addEventListener("blur", () => keys.clear());
 
+  canvas.focus();
   resize();
   requestAnimationFrame(frame);
 })();
