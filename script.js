@@ -174,7 +174,53 @@
     return farFromSpawn && (roll < baseChance || longHall || crossCut);
   }
 
+  function axisBreak(leftCellX) {
+    if (Math.abs(leftCellX) < 3) return false;
+    const spaced = hash(leftCellX, 0, 1543) % 100 < 56;
+    const neighborA = hash(leftCellX - 1, 0, 1543) % 100 < 56;
+    const neighborB = hash(leftCellX + 1, 0, 1543) % 100 < 56;
+    return spaced && (!neighborA || !neighborB);
+  }
+
+  function axisDetourSide(leftCellX) {
+    return hash(leftCellX, 0, 1559) % 2 === 0 ? 1 : -1;
+  }
+
+  function horizontalZeroAxisEdge(ax, ay, bx, by) {
+    return ay === 0 && by === 0 && Math.abs(ax - bx) === 1;
+  }
+
+  function blockedZeroAxisEdge(ax, ay, bx, by) {
+    if (!horizontalZeroAxisEdge(ax, ay, bx, by)) return false;
+    return axisBreak(Math.min(ax, bx));
+  }
+
+  function zeroAxisBypassEdge(ax, ay, bx, by) {
+    if (Math.abs(ax - bx) + Math.abs(ay - by) !== 1) return false;
+
+    if (ay === by && Math.abs(ay) === 1) {
+      const left = Math.min(ax, bx);
+      return axisBreak(left) && axisDetourSide(left) === ay;
+    }
+
+    if (ax === bx && ((ay === 0 && Math.abs(by) === 1) || (by === 0 && Math.abs(ay) === 1))) {
+      const side = ay === 0 ? by : ay;
+      return (axisBreak(ax) && axisDetourSide(ax) === side) ||
+        (axisBreak(ax - 1) && axisDetourSide(ax - 1) === side);
+    }
+
+    return false;
+  }
+
+  function protectedAxisWall(tx, ty) {
+    if (ty !== 0 || tx % 2 === 0) return false;
+    return axisBreak(Math.floor(tx / 2));
+  }
+
   function connected(ax, ay, bx, by) {
+    if (blockedZeroAxisEdge(ax, ay, bx, by)) return false;
+    if (zeroAxisBypassEdge(ax, ay, bx, by)) return true;
+
     const aParent = parentOf(ax, ay);
     const bParent = parentOf(bx, by);
     return (aParent && aParent.x === bx && aParent.y === by) ||
@@ -206,6 +252,7 @@
 
   function tileKind(tx, ty) {
     if (baseTileKind(tx, ty) === "floor") return "floor";
+    if (protectedAxisWall(tx, ty)) return "wall";
 
     const nearHorizontal = baseTileKind(tx, ty - 1) === "floor" || baseTileKind(tx, ty + 1) === "floor";
     const nearVertical = baseTileKind(tx - 1, ty) === "floor" || baseTileKind(tx + 1, ty) === "floor";
