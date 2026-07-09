@@ -12,7 +12,7 @@
   const PLAYER_RADIUS = 7;
   const MONSTER_RADIUS = 8;
   const SPEED = 155;
-  const SPRINT_SPEED = 245;24 + (hash(23, -51, 719)24 + (hash(23, -51, 719) % 13)% 13)
+    const SPRINT_SPEED = 245;
   const STAMINA_MAX = 100;
   const STAMINA_DRAIN = 34;
   const STAMINA_RECOVER = 24;
@@ -113,7 +113,7 @@
 
   function pickMonsterCell() {
     const angle = (hash(41, 19, 707) / 0xffffffff) * Math.PI * 2;
-    const distance = 28 + (hash(23, -51, 719) % 15);
+        const distance = 24 + (hash(23, -51, 719) % 13);
     return {
       x: Math.round(Math.cos(angle) * distance),
       y: Math.round(Math.sin(angle) * distance)
