@@ -186,6 +186,17 @@
     return hash(leftCellX, 0, 1559) % 2 === 0 ? 1 : -1;
   }
 
+  function axisCellBlock(cellX) {
+    if (Math.abs(cellX) < 4) return false;
+    const current = hash(cellX, 0, 1601) % 100 < 36;
+    const previous = hash(cellX - 1, 0, 1601) % 100 < 36;
+    return current && !previous;
+  }
+
+  function axisCellDetourSide(cellX) {
+    return hash(cellX, 0, 1613) % 2 === 0 ? 1 : -1;
+  }
+
   function horizontalZeroAxisEdge(ax, ay, bx, by) {
     return ay === 0 && by === 0 && Math.abs(ax - bx) === 1;
   }
@@ -200,20 +211,25 @@
 
     if (ay === by && Math.abs(ay) === 1) {
       const left = Math.min(ax, bx);
-      return axisBreak(left) && axisDetourSide(left) === ay;
+      return (axisBreak(left) && axisDetourSide(left) === ay) ||
+        (axisCellBlock(left) && axisCellDetourSide(left) === ay) ||
+        (axisCellBlock(left + 1) && axisCellDetourSide(left + 1) === ay);
     }
 
     if (ax === bx && ((ay === 0 && Math.abs(by) === 1) || (by === 0 && Math.abs(ay) === 1))) {
       const side = ay === 0 ? by : ay;
       return (axisBreak(ax) && axisDetourSide(ax) === side) ||
-        (axisBreak(ax - 1) && axisDetourSide(ax - 1) === side);
+        (axisBreak(ax - 1) && axisDetourSide(ax - 1) === side) ||
+        (axisCellBlock(ax - 1) && axisCellDetourSide(ax - 1) === side) ||
+        (axisCellBlock(ax + 1) && axisCellDetourSide(ax + 1) === side);
     }
 
     return false;
   }
 
   function protectedAxisWall(tx, ty) {
-    if (ty !== 0 || tx % 2 === 0) return false;
+    if (ty !== 0) return false;
+    if (tx % 2 === 0) return axisCellBlock(tx / 2);
     return axisBreak(Math.floor(tx / 2));
   }
 
@@ -250,9 +266,43 @@
     return hash(Math.floor(tx / 2), Math.floor(ty / 2), salt) % 100;
   }
 
+  function baseFloorNeighborCount(tx, ty) {
+    const neighbors = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ];
+    return neighbors.reduce((count, offset) => {
+      return count + (baseTileKind(tx + offset[0], ty + offset[1]) === "floor" ? 1 : 0);
+    }, 0);
+  }
+
+  function thickWallBulge(tx, ty) {
+    if (Math.hypot(tx, ty) < 8) return false;
+    if (protectedAxisWall(tx, ty)) return true;
+    if (baseTileKind(tx, ty) !== "floor") return false;
+
+    const coreCell = tx % 2 === 0 && ty % 2 === 0;
+    if (coreCell) return false;
+
+    const wallRegion = hash(Math.floor(tx / 6), Math.floor(ty / 6), 1709) % 100;
+    const enoughRoom = baseFloorNeighborCount(tx, ty) >= 3;
+    const nearWall = baseTileKind(tx + 1, ty) === "wall" ||
+      baseTileKind(tx - 1, ty) === "wall" ||
+      baseTileKind(tx, ty + 1) === "wall" ||
+      baseTileKind(tx, ty - 1) === "wall";
+    if (!enoughRoom || !nearWall) return false;
+
+    const local = hash(tx, ty, 1721) % 100;
+    const clump = hash(Math.floor(tx / 2), Math.floor(ty / 2), 1733) % 100;
+    const chance = wallRegion < 22 ? 34 : wallRegion < 68 ? 18 : 7;
+    return local < chance || clump < 9;
+  }
+
   function tileKind(tx, ty) {
+    if (protectedAxisWall(tx, ty) || thickWallBulge(tx, ty)) return "wall";
     if (baseTileKind(tx, ty) === "floor") return "floor";
-    if (protectedAxisWall(tx, ty)) return "wall";
 
     const nearHorizontal = baseTileKind(tx, ty - 1) === "floor" || baseTileKind(tx, ty + 1) === "floor";
     const nearVertical = baseTileKind(tx - 1, ty) === "floor" || baseTileKind(tx + 1, ty) === "floor";
