@@ -174,7 +174,7 @@
     return farFromSpawn && (roll < baseChance || longHall || crossCut);
   }
 
-  function axisBreak(leftCellX) {
+  function horizontalAxisBreak(leftCellX) {
     if (Math.abs(leftCellX) < 3) return false;
     const spaced = hash(leftCellX, 0, 1543) % 100 < 56;
     const neighborA = hash(leftCellX - 1, 0, 1543) % 100 < 56;
@@ -182,28 +182,56 @@
     return spaced && (!neighborA || !neighborB);
   }
 
-  function axisDetourSide(leftCellX) {
+  function verticalAxisBreak(topCellY) {
+    if (Math.abs(topCellY) < 3) return false;
+    const spaced = hash(0, topCellY, 1549) % 100 < 56;
+    const neighborA = hash(0, topCellY - 1, 1549) % 100 < 56;
+    const neighborB = hash(0, topCellY + 1, 1549) % 100 < 56;
+    return spaced && (!neighborA || !neighborB);
+  }
+
+  function horizontalAxisDetourSide(leftCellX) {
     return hash(leftCellX, 0, 1559) % 2 === 0 ? 1 : -1;
   }
 
-  function axisCellBlock(cellX) {
+  function verticalAxisDetourSide(topCellY) {
+    return hash(0, topCellY, 1567) % 2 === 0 ? 1 : -1;
+  }
+
+  function horizontalAxisCellBlock(cellX) {
     if (Math.abs(cellX) < 4) return false;
     const current = hash(cellX, 0, 1601) % 100 < 36;
     const previous = hash(cellX - 1, 0, 1601) % 100 < 36;
     return current && !previous;
   }
 
-  function axisCellDetourSide(cellX) {
+  function verticalAxisCellBlock(cellY) {
+    if (Math.abs(cellY) < 4) return false;
+    const current = hash(0, cellY, 1607) % 100 < 36;
+    const previous = hash(0, cellY - 1, 1607) % 100 < 36;
+    return current && !previous;
+  }
+
+  function horizontalAxisCellDetourSide(cellX) {
     return hash(cellX, 0, 1613) % 2 === 0 ? 1 : -1;
+  }
+
+  function verticalAxisCellDetourSide(cellY) {
+    return hash(0, cellY, 1621) % 2 === 0 ? 1 : -1;
   }
 
   function horizontalZeroAxisEdge(ax, ay, bx, by) {
     return ay === 0 && by === 0 && Math.abs(ax - bx) === 1;
   }
 
+  function verticalZeroAxisEdge(ax, ay, bx, by) {
+    return ax === 0 && bx === 0 && Math.abs(ay - by) === 1;
+  }
+
   function blockedZeroAxisEdge(ax, ay, bx, by) {
-    if (!horizontalZeroAxisEdge(ax, ay, bx, by)) return false;
-    return axisBreak(Math.min(ax, bx));
+    if (horizontalZeroAxisEdge(ax, ay, bx, by)) return horizontalAxisBreak(Math.min(ax, bx));
+    if (verticalZeroAxisEdge(ax, ay, bx, by)) return verticalAxisBreak(Math.min(ay, by));
+    return false;
   }
 
   function zeroAxisBypassEdge(ax, ay, bx, by) {
@@ -211,26 +239,47 @@
 
     if (ay === by && Math.abs(ay) === 1) {
       const left = Math.min(ax, bx);
-      return (axisBreak(left) && axisDetourSide(left) === ay) ||
-        (axisCellBlock(left) && axisCellDetourSide(left) === ay) ||
-        (axisCellBlock(left + 1) && axisCellDetourSide(left + 1) === ay);
+      return (horizontalAxisBreak(left) && horizontalAxisDetourSide(left) === ay) ||
+        (horizontalAxisCellBlock(left) && horizontalAxisCellDetourSide(left) === ay) ||
+        (horizontalAxisCellBlock(left + 1) && horizontalAxisCellDetourSide(left + 1) === ay);
+    }
+
+    if (ax === bx && Math.abs(ax) === 1) {
+      const top = Math.min(ay, by);
+      return (verticalAxisBreak(top) && verticalAxisDetourSide(top) === ax) ||
+        (verticalAxisCellBlock(top) && verticalAxisCellDetourSide(top) === ax) ||
+        (verticalAxisCellBlock(top + 1) && verticalAxisCellDetourSide(top + 1) === ax);
     }
 
     if (ax === bx && ((ay === 0 && Math.abs(by) === 1) || (by === 0 && Math.abs(ay) === 1))) {
       const side = ay === 0 ? by : ay;
-      return (axisBreak(ax) && axisDetourSide(ax) === side) ||
-        (axisBreak(ax - 1) && axisDetourSide(ax - 1) === side) ||
-        (axisCellBlock(ax - 1) && axisCellDetourSide(ax - 1) === side) ||
-        (axisCellBlock(ax + 1) && axisCellDetourSide(ax + 1) === side);
+      return (horizontalAxisBreak(ax) && horizontalAxisDetourSide(ax) === side) ||
+        (horizontalAxisBreak(ax - 1) && horizontalAxisDetourSide(ax - 1) === side) ||
+        (horizontalAxisCellBlock(ax - 1) && horizontalAxisCellDetourSide(ax - 1) === side) ||
+        (horizontalAxisCellBlock(ax + 1) && horizontalAxisCellDetourSide(ax + 1) === side);
+    }
+
+    if (ay === by && ((ax === 0 && Math.abs(bx) === 1) || (bx === 0 && Math.abs(ax) === 1))) {
+      const side = ax === 0 ? bx : ax;
+      return (verticalAxisBreak(ay) && verticalAxisDetourSide(ay) === side) ||
+        (verticalAxisBreak(ay - 1) && verticalAxisDetourSide(ay - 1) === side) ||
+        (verticalAxisCellBlock(ay - 1) && verticalAxisCellDetourSide(ay - 1) === side) ||
+        (verticalAxisCellBlock(ay + 1) && verticalAxisCellDetourSide(ay + 1) === side);
     }
 
     return false;
   }
 
   function protectedAxisWall(tx, ty) {
-    if (ty !== 0) return false;
-    if (tx % 2 === 0) return axisCellBlock(tx / 2);
-    return axisBreak(Math.floor(tx / 2));
+    if (ty === 0) {
+      if (tx % 2 === 0) return horizontalAxisCellBlock(tx / 2);
+      return horizontalAxisBreak(Math.floor(tx / 2));
+    }
+    if (tx === 0) {
+      if (ty % 2 === 0) return verticalAxisCellBlock(ty / 2);
+      return verticalAxisBreak(Math.floor(ty / 2));
+    }
+    return false;
   }
 
   function connected(ax, ay, bx, by) {
