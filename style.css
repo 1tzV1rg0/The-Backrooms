@@ -17,6 +17,7 @@ body {
   margin: 0;
   overflow: hidden;
   background: var(--floor-deep);
+  touch-action: none;
   font-family: "Trebuchet MS", Arial, sans-serif;
 }
 
@@ -58,9 +59,9 @@ body {
   pointer-events: auto;
 }
 
-#restart,
+#restart:hover,
 #pause:hover,
-#restart,
+#restart:focus-visible,
 #pause:focus-visible {
   background: rgba(57, 42, 5, 0.78);
   outline: none;
@@ -79,4 +80,122 @@ body {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#coords[hidden] {
+  display: none;
+}
+
+
+#touchControls {
+  position: fixed;
+  inset: auto 14px calc(14px + env(safe-area-inset-bottom)) 14px;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  pointer-events: none;
+  user-select: none;
+}
+
+#touchStick {
+  width: 128px;
+  height: 128px;
+  border: 1px solid rgba(255, 249, 200, 0.38);
+  border-radius: 50%;
+  background: rgba(30, 22, 2, 0.28);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.24);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#touchKnob {
+  width: 48px;
+  height: 48px;
+  margin: 40px;
+  border-radius: 50%;
+  background: rgba(255, 249, 200, 0.78);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
+  transform: translate(0, 0);
+}
+
+#touchActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  gap: 10px;
+  pointer-events: auto;
+}
+
+#touchActions button {
+  min-height: 46px;
+  border: 1px solid rgba(255, 249, 200, 0.48);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(30, 22, 2, 0.56);
+  color: #fff9c8;
+  font: 700 13px/1 "Trebuchet MS", Arial, sans-serif;
+  touch-action: manipulation;
+}
+
+#touchActions button:active,
+#touchActions button.is-held {
+  background: rgba(31, 122, 255, 0.72);
+  color: #ffffff;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 760px) {
+  #touchControls {
+    display: flex;
+  }
+
+  #hud {
+    left: 10px;
+    right: 10px;
+    top: calc(8px + env(safe-area-inset-top));
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  #coords,
+  #status {
+    max-width: calc(100vw - 20px);
+    flex: 1 1 100%;
+    text-align: left;
+  }
+
+  #pause,
+  #restart {
+    min-height: 34px;
+    padding: 7px 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  #touchControls {
+    gap: 10px;
+  }
+
+  #touchStick {
+    width: 112px;
+    height: 112px;
+  }
+
+  #touchKnob {
+    width: 42px;
+    height: 42px;
+    margin: 35px;
+  }
+
+  #touchActions {
+    grid-template-columns: repeat(2, minmax(64px, 1fr));
+    gap: 8px;
+  }
+
+  #touchActions button {
+    min-height: 42px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
 }
