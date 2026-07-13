@@ -7,12 +7,23 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="game" aria-label="Backrooms maze game"></canvas>
+  <canvas id="game" tabindex="0" aria-label="Backrooms maze game"></canvas>
   <div id="hud" aria-live="polite">
     <span id="coords">Player 0, 0 | Monster 0, 0</span>
     <span id="status">Find the exit</span>
     <button id="pause" type="button" aria-label="Pause game">Pause (P)</button>
-    <button id="restart" type="button" aria-label="Re<canvas id="game" tabindex="0" aria-label="Backrooms maze game"></canvas>start game">Restart (R)</button>
+    <button id="restart" type="button" aria-label="Restart game">Restart (R)</button>
+  </div>
+  <div id="touchControls" aria-label="Touch controls">
+    <div id="touchStick" aria-label="Move" role="application">
+      <div id="touchKnob"></div>
+    </div>
+    <div id="touchActions">
+      <button id="touchSprint" type="button">Sprint</button>
+      <button id="touchPause" type="button">Pause</button>
+      <button id="touchRestart" type="button">Restart</button>
+      <button id="touchCoords" type="button">Coords</button>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>
