@@ -126,12 +126,26 @@
   }
 
   function pickMonsterCell() {
-    const angle = (hash(41, 19, 707) / 0xffffffff) * Math.PI * 2;
-    const distance = 24 + (hash(23, -51, 719) % 13);
-    return {
-      x: Math.round(Math.cos(angle) * distance),
-      y: Math.round(Math.sin(angle) * distance)
-    };
+    const candidates = [];
+
+    for (let oy = -9; oy <= 9; oy += 1) {
+      for (let ox = -9; ox <= 9; ox += 1) {
+        const distance = Math.abs(ox) + Math.abs(oy);
+        if (distance < 4 || distance > 9) continue;
+
+        const cx = EXIT_CELL.x + ox;
+        const cy = EXIT_CELL.y + oy;
+        const tx = cx * 2;
+        const ty = cy * 2;
+        if (tileKind(tx, ty) !== "floor") continue;
+
+        const score = Math.abs(distance - 6) * 120 + (hash(cx, cy, 719) % 100);
+        candidates.push({ x: cx, y: cy, score });
+      }
+    }
+
+    candidates.sort((a, b) => a.score - b.score);
+    return candidates[0] || { x: EXIT_CELL.x + 4, y: EXIT_CELL.y };
   }
 
   function parentOf(cx, cy) {
