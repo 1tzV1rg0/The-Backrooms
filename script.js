@@ -234,6 +234,15 @@
     return hash(0, cellY, 1621) % 2 === 0 ? 1 : -1;
   }
 
+  function verticalAxisTileBlock(ty) {
+    if (Math.abs(ty) < 8) return false;
+    const band = Math.floor(ty / 4);
+    const edge = Math.abs(ty % 4);
+    const clustered = hash(0, band, 1801) % 100 < 58 && edge !== 2;
+    const speckle = hash(0, ty, 1811) % 100 < 22;
+    return clustered || speckle;
+  }
+
   function horizontalZeroAxisEdge(ax, ay, bx, by) {
     return ay === 0 && by === 0 && Math.abs(ax - bx) === 1;
   }
@@ -290,6 +299,7 @@
       return horizontalAxisBreak(Math.floor(tx / 2));
     }
     if (tx === 0) {
+      if (verticalAxisTileBlock(ty)) return true;
       if (ty % 2 === 0) return verticalAxisCellBlock(ty / 2);
       return verticalAxisBreak(Math.floor(ty / 2));
     }
