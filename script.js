@@ -789,15 +789,17 @@
   function drawExit(cameraX, cameraY) {
     const x = EXIT_TILE.x * TILE - cameraX;
     const y = EXIT_TILE.y * TILE - cameraY;
-    const glow = 0.5 + Math.sin(state.pulse * 5) * 0.25;
+    const glow = 0.72 + Math.sin(state.pulse * 5) * 0.18;
 
     ctx.save();
-    ctx.shadowColor = "rgba(226, 255, 186, " + glow + ")";
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = "#d9f7c2";
-    ctx.fillRect(x + 5, y + 3, TILE - 10, TILE - 6);
-    ctx.fillStyle = "#7fa15a";
-    ctx.fillRect(x + TILE - 9, y + TILE / 2 - 1, 3, 3);
+    ctx.shadowColor = "rgba(255, 255, 255, " + glow + ")";
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(255, 255, 220, 0.72)";
+    ctx.fillRect(x + 3, y + 3, TILE - 6, TILE - 6);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.fillRect(x + 7, y + 7, TILE - 14, TILE - 14);
     ctx.restore();
   }
 
